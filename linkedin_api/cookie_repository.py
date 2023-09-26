@@ -45,6 +45,7 @@ class CookieRepository(object):
         """
         Return the absolute path of the cookiejar for a given username
         """
+
         return "{}{}.jr".format(self.cookies_dir, username)
 
     def _load_cookies_from_cache(self, username):

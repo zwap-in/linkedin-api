@@ -938,16 +938,18 @@ class Linkedin(object):
 
         return res.json()
 
-    def get_conversation(self, conversation_urn_id):
+    def get_conversation(self, conversation_urn_id, start: int = 0):
         """Fetch data about a given conversation.
 
         :param conversation_urn_id: LinkedIn URN ID for a conversation
         :type conversation_urn_id: str
+        :param start: Starter number
+        :type start: int = 0
 
         :return: Conversation data
         :rtype: dict
         """
-        res = self._fetch(f"/messaging/conversations/{conversation_urn_id}/events")
+        res = self._fetch(f"/messaging/conversations/{conversation_urn_id}/events?start={start}")
 
         return res.json()
 

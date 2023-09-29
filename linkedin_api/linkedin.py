@@ -1456,6 +1456,21 @@ class Linkedin(object):
 
         return data
 
+    def get_full_job(self, job_id):
+        params = {
+            "decorationId": "com.linkedin.voyager.deco.jobs.web.shared.WebFullJobPosting-65",
+        }
+
+        res = self._fetch(f"/jobs/jobPostings/{job_id}", params=params)
+
+        data = res.json()
+
+        if data and "status" in data and data["status"] != 200:
+            self.logger.info("request failed: {}".format(data["message"]))
+            return {}
+
+        return data
+
     def get_job_skills(self, job_id):
         """Fetch data skills about a given job.
         :param job_id: LinkedIn job ID

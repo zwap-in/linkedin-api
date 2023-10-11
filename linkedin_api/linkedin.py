@@ -1,25 +1,20 @@
 """
 Provides linkedin api-related code
 """
-import base64
 import json
 import logging
 import random
 import uuid
+
+from typing import Optional
 from operator import itemgetter
 from time import sleep, time
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
 from linkedin_api.client import Client
 from linkedin_api.utils.helpers import (
-    append_update_post_field_to_posts_list,
     get_id_from_urn,
     get_list_posts_sorted_without_promoted,
-    get_update_author_name,
-    get_update_author_profile,
-    get_update_content,
-    get_update_old,
-    get_update_url,
     parse_list_raw_posts,
     parse_list_raw_urns,
     generate_trackingId,
@@ -55,16 +50,16 @@ class Linkedin(object):
     )
 
     def __init__(
-        self,
-        username,
-        password,
-        *,
-        authenticate=True,
-        refresh_cookies=False,
-        debug=False,
-        proxies={},
-        cookies=None,
-        cookies_dir=None,
+            self,
+            username,
+            password,
+            *,
+            authenticate=True,
+            refresh_cookies=False,
+            debug=False,
+            proxies={},
+            cookies=None,
+            cookies_dir=None,
     ):
         """Constructor method"""
         self.client = Client(
@@ -242,8 +237,8 @@ class Linkedin(object):
             # NOTE: we could also check for the `total` returned in the response.
             # This is in data["data"]["paging"]["total"]
             if (
-                (-1 < limit <= len(results))  # if our results exceed set limit
-                or len(results) / count >= Linkedin._MAX_REPEATED_REQUESTS
+                    (-1 < limit <= len(results))  # if our results exceed set limit
+                    or len(results) / count >= Linkedin._MAX_REPEATED_REQUESTS
             ) or len(new_elements) == 0:
                 break
 
@@ -252,30 +247,30 @@ class Linkedin(object):
         return results
 
     def search_people(
-        self,
-        keywords=None,
-        connection_of=None,
-        network_depths=None,
-        current_company=None,
-        past_companies=None,
-        nonprofit_interests=None,
-        profile_languages=None,
-        regions=None,
-        industries=None,
-        schools=None,
-        contact_interests=None,
-        service_categories=None,
-        include_private_profiles=False,  # profiles without a public id, "Linkedin Member"
-        # Keywords filter
-        keyword_first_name=None,
-        keyword_last_name=None,
-        # `keyword_title` and `title` are the same. We kept `title` for backward compatibility. Please only use one of them.
-        keyword_title=None,
-        keyword_company=None,
-        keyword_school=None,
-        network_depth=None,  # DEPRECATED - use network_depths
-        title=None,  # DEPRECATED - use keyword_title
-        **kwargs,
+            self,
+            keywords=None,
+            connection_of=None,
+            network_depths=None,
+            current_company=None,
+            past_companies=None,
+            nonprofit_interests=None,
+            profile_languages=None,
+            regions=None,
+            industries=None,
+            schools=None,
+            contact_interests=None,
+            service_categories=None,
+            include_private_profiles=False,  # profiles without a public id, "Linkedin Member"
+            # Keywords filter
+            keyword_first_name=None,
+            keyword_last_name=None,
+            # `keyword_title` and `title` are the same. We kept `title` for backward compatibility. Please only use one of them.
+            keyword_title=None,
+            keyword_company=None,
+            keyword_school=None,
+            network_depth=None,  # DEPRECATED - use network_depths
+            title=None,  # DEPRECATED - use keyword_title
+            **kwargs,
     ):
         """Perform a LinkedIn search for people.
 
@@ -418,20 +413,20 @@ class Linkedin(object):
         return results
 
     def search_jobs(
-        self,
-        keywords=None,
-        companies=None,
-        experience=None,
-        job_type=None,
-        job_title=None,
-        industries=None,
-        location_name=None,
-        remote=False,
-        listed_at=24 * 60 * 60,
-        distance=None,
-        limit=-1,
-        offset=0,
-        **kwargs,
+            self,
+            keywords=None,
+            companies=None,
+            experience=None,
+            job_type=None,
+            job_title=None,
+            industries=None,
+            location_name=None,
+            remote=False,
+            listed_at=24 * 60 * 60,
+            distance=None,
+            limit=-1,
+            offset=0,
+            **kwargs,
     ):
         """Perform a LinkedIn search for jobs.
 
@@ -529,8 +524,8 @@ class Linkedin(object):
             # NOTE: we could also check for the `total` returned in the response.
             # This is in data["data"]["paging"]["total"]
             if (
-                (-1 < limit <= len(results))  # if our results exceed set limit
-                or len(results) / count >= Linkedin._MAX_REPEATED_REQUESTS
+                    (-1 < limit <= len(results))  # if our results exceed set limit
+                    or len(results) / count >= Linkedin._MAX_REPEATED_REQUESTS
             ) or len(elements) == 0:
                 break
 
@@ -731,7 +726,7 @@ class Linkedin(object):
         return self.search_people(connection_of=urn_id, network_depth="F")
 
     def get_company_updates(
-        self, public_id=None, urn_id=None, max_results=None, results=None
+            self, public_id=None, urn_id=None, max_results=None, results=None
     ):
         """Fetch company updates (news activity) for a given LinkedIn company.
 
@@ -743,10 +738,10 @@ class Linkedin(object):
         :return: List of company update objects
         :rtype: list
         """
-        
+
         if results is None:
             results = []
-        
+
         params = {
             "companyUniversalName": {public_id or urn_id},
             "q": "companyFeedByUniversalName",
@@ -760,12 +755,12 @@ class Linkedin(object):
         data = res.json()
 
         if (
-            len(data["elements"]) == 0
-            or (max_results is not None and len(results) >= max_results)
-            or (
+                len(data["elements"]) == 0
+                or (max_results is not None and len(results) >= max_results)
+                or (
                 max_results is not None
                 and len(results) / max_results >= Linkedin._MAX_REPEATED_REQUESTS
-            )
+        )
         ):
             return results
 
@@ -780,7 +775,7 @@ class Linkedin(object):
         )
 
     def get_profile_updates(
-        self, public_id=None, urn_id=None, max_results=None, results=None
+            self, public_id=None, urn_id=None, max_results=None, results=None
     ):
         """Fetch profile updates (newsfeed activity) for a given LinkedIn profile.
 
@@ -792,10 +787,10 @@ class Linkedin(object):
         :return: List of profile update objects
         :rtype: list
         """
-        
+
         if results is None:
             results = []
-            
+
         params = {
             "profileId": {public_id or urn_id},
             "q": "memberShareFeed",
@@ -809,12 +804,12 @@ class Linkedin(object):
         data = res.json()
 
         if (
-            len(data["elements"]) == 0
-            or (max_results is not None and len(results) >= max_results)
-            or (
+                len(data["elements"]) == 0
+                or (max_results is not None and len(results) >= max_results)
+                or (
                 max_results is not None
                 and len(results) / max_results >= Linkedin._MAX_REPEATED_REQUESTS
-            )
+        )
         ):
             return results
 
@@ -1072,7 +1067,7 @@ class Linkedin(object):
         return [element["invitation"] for element in response_payload["elements"]]
 
     def reply_invitation(
-        self, invitation_entity_urn, invitation_shared_secret, action="accept"
+            self, invitation_entity_urn, invitation_shared_secret, action="accept"
     ):
         """Respond to a connection invitation. By default, accept the invitation.
 
@@ -1182,10 +1177,10 @@ class Linkedin(object):
         return res.status_code != 200
 
     def view_profile(
-        self,
-        target_profile_public_id,
-        target_profile_member_urn_id=None,
-        network_distance=None,
+            self,
+            target_profile_public_id,
+            target_profile_member_urn_id=None,
+            network_distance=None,
     ):
         """View a profile, notifying the user that you "viewed" their profile.
 
@@ -1339,7 +1334,7 @@ class Linkedin(object):
         return err
 
     def _get_list_feed_posts_and_list_feed_urns(
-        self, limit=-1, offset=0, exclude_promoted_posts=True
+            self, limit=-1, offset=0, exclude_promoted_posts=True
     ):
         """Get a list of URNs from feed sorted by 'Recent' and a list of yet
         unsorted posts, each one of them containing a dict per post.
@@ -1407,8 +1402,8 @@ class Linkedin(object):
             # NOTE: we could also check for the `total` returned in the response.
             # This is in data["data"]["paging"]["total"]
             if (
-                (limit > -1 and len(l_urns) >= limit)  # if our results exceed set limit
-                or len(l_urns) / count >= Linkedin._MAX_REPEATED_REQUESTS
+                    (limit > -1 and len(l_urns) >= limit)  # if our results exceed set limit
+                    or len(l_urns) / count >= Linkedin._MAX_REPEATED_REQUESTS
             ) or len(l_raw_urns) == 0:
                 break
 
@@ -1483,7 +1478,8 @@ class Linkedin(object):
             "decorationId": "com.linkedin.voyager.dash.deco.assessments.FullJobSkillMatchInsight-16"
         }
 
-        res = self._fetch(f"/voyagerAssessmentsDashJobSkillMatchInsight/urn:li:fsd_jobSkillMatchInsight:{job_id}", params=params)
+        res = self._fetch(f"/voyagerAssessmentsDashJobSkillMatchInsight/urn:li:fsd_jobSkillMatchInsight:{job_id}",
+                          params=params)
 
         data = res.json()
 
@@ -1492,3 +1488,95 @@ class Linkedin(object):
             return {}
 
         return data
+
+    def find_conversation_by_profile_url(self, profile_username: str) -> Optional[str]:
+
+        profile = self.get_profile(profile_username)
+        if profile is not None:
+            profile_urn = profile.get("profile_urn", None)
+            if profile_urn is not None:
+                profile_urn_id = profile_urn.split("urn:li:fs_miniProfile:")[1]
+                conversation = self.get_conversation_details(profile_urn_id)
+                return conversation.get("id", None)
+
+    def is_waiting_for_reply(self, profile_username: str) -> bool:
+
+        conversation_id = self.find_conversation_by_profile_url(profile_username)
+        if conversation_id is not None:
+            messages = self.get_conversation(conversation_id)
+            messages = messages.get("elements", [])
+            if len(messages) > 0:
+                last_message = messages[-1]
+                author = last_message.get("from", {}) \
+                    .get('com.linkedin.voyager.messaging.MessagingMember', {}).get("miniProfile", {}).get(
+                    "publicIdentifier", None)
+                if author is not None:
+                    return author != profile_username
+        return False
+
+    def retrieve_last_message_text(self, profile_username: str) -> Optional[str]:
+
+        final_messages = []
+        conversation_id = self.find_conversation_by_profile_url(profile_username)
+        if conversation_id is not None:
+            check = False
+            start = 0
+            while check is False:
+                messages = self.get_conversation(conversation_id, start=start)
+                messages = messages.get("elements", [])
+                if len(messages) == 0:
+                    break
+                final_messages.extend(self._struct_messages(messages))
+                check = (any(item["author"] == profile_username for item in final_messages) is False)
+                start += len(messages)
+        final_message = self._build_last_message_from_author(profile_username, final_messages)
+        return final_message
+
+    def send_in_mail_message(self) -> bool:
+        pass
+
+    def check_current_plan(self) -> None:
+        pass
+
+    def get_conversation_in_mail(self):
+        pass
+
+    @staticmethod
+    def _build_last_message_from_author(author_name: str, messages: list) -> str:
+
+        final_message = ""
+        sorted_data = sorted(messages, key=lambda x: x["created_at"])
+        last_messages_from_current_account = max((item for item in sorted_data if item["author"] != author_name),
+                                                 key=lambda x: x["created_at"],
+                                                 default=None)
+        if last_messages_from_current_account:
+            messages_from_author_after_current = [item for item in sorted_data if
+                                                  item["author"] == author_name and item["created_at"] >
+                                                  last_messages_from_current_account[
+                                                      "created_at"]]
+        else:
+            messages_from_author_after_current = sorted_data
+        for message in messages_from_author_after_current:
+            final_message += f" {message['text']}"
+        return final_message
+
+    @staticmethod
+    def _struct_messages(messages: list):
+
+        final_messages = []
+        for message in messages:
+            created_at = message.get("createdAt", -1)
+            text = message.get("eventContent", {}).get('com.linkedin.voyager.messaging.event.MessageEvent', {}).get(
+                "attributedBody", {}).get("text", None)
+            author = message.get("from", {}) \
+                .get('com.linkedin.voyager.messaging.MessagingMember', {}).get("miniProfile", {}).get(
+                "publicIdentifier", None)
+            if created_at != -1 and text is not None and author is not None:
+                final_messages.append(
+                    {
+                        "created_at": created_at,
+                        "text": text,
+                        "author": author
+                    }
+                )
+        return final_messages

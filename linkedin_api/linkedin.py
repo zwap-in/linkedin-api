@@ -6,8 +6,9 @@ import logging
 import random
 import uuid
 
-from typing import Optional
+from typing import Optional, Tuple
 from operator import itemgetter
+from datetime import datetime
 from time import sleep, time
 from urllib.parse import urlencode
 
@@ -906,6 +907,7 @@ class Linkedin(object):
         """
         # passing `params` doesn't work properly, think it's to do with List().
         # Might be a bug in `requests`?
+        default_evade()
         res = self._fetch(
             f"/messaging/conversations?\
             keyVersion=LEGACY_INBOX&q=participants&recipients=List({profile_urn_id})"
@@ -944,6 +946,7 @@ class Linkedin(object):
         :return: Conversation data
         :rtype: dict
         """
+        default_evade()
         res = self._fetch(f"/messaging/conversations/{conversation_urn_id}/events?start={start}")
 
         return res.json()
@@ -1099,7 +1102,7 @@ class Linkedin(object):
 
         return res.status_code == 200
 
-    def add_connection(self, profile_public_id, message="", profile_urn=None):
+    def add_connection(self, profile_public_id, message="", profile_urn=None) -> bool:
         """Add a given profile id as a connection.
 
         :param profile_public_id: public ID of a LinkedIn profile
@@ -1143,7 +1146,11 @@ class Linkedin(object):
             data=json.dumps(payload),
             headers={"accept": "application/vnd.linkedin.normalized+json+2.1"},
         )
-
+        try:
+            data = res.json()
+        except Exception as e:
+            data = {}
+            pass
         return res.status_code != 201
 
     def remove_connection(self, public_profile_id):
@@ -1489,79 +1496,120 @@ class Linkedin(object):
 
         return data
 
-    def find_conversation_by_profile_url(self, profile_username: str) -> Optional[str]:
+    def retrieve_profile_urn(self, profile_username: str) -> Optional[str]:
 
+        default_evade()
         profile = self.get_profile(profile_username)
         if profile is not None:
             profile_urn = profile.get("profile_urn", None)
             if profile_urn is not None:
-                profile_urn_id = profile_urn.split("urn:li:fs_miniProfile:")[1]
-                conversation = self.get_conversation_details(profile_urn_id)
-                return conversation.get("id", None)
+                return profile_urn.split("urn:li:fs_miniProfile:")[1]
 
-    def is_waiting_for_reply(self, profile_username: str) -> bool:
+    def find_conversation_by_profile_url(self, profile_username: str) -> Optional[str]:
 
+        profile_urn_id = self.retrieve_profile_urn(profile_username)
+        if profile_urn_id is not None:
+            conversation = self.get_conversation_details(profile_urn_id)
+            return conversation.get("id", None)
+
+    def _get_last_owner_message_id(self, profile_username: str, current_username: str,
+                                   standard_check: bool = True) -> Optional[str]:
+        last_response_index = None
+        final_messages = []
+        start = 0
+        user_to_stop = profile_username if standard_check else current_username
+        other_user_check = profile_username if user_to_stop == current_username else current_username
         conversation_id = self.find_conversation_by_profile_url(profile_username)
         if conversation_id is not None:
-            messages = self.get_conversation(conversation_id)
-            messages = messages.get("elements", [])
-            if len(messages) > 0:
-                last_message = messages[-1]
-                author = last_message.get("from", {}) \
-                    .get('com.linkedin.voyager.messaging.MessagingMember', {}).get("miniProfile", {}).get(
-                    "publicIdentifier", None)
-                if author is not None:
-                    return author != profile_username
-        return False
+            while True:
+                messages = self.get_conversation(conversation_id, start=start)
+                messages = messages.get("elements", [])
+                messages = self._struct_messages(messages)
+                if len(messages) == 0:
+                    break
+                for i, msg in enumerate(reversed(messages)):
+                    if msg['author'] == user_to_stop:
+                        last_response_index = i
+                        break
+                    elif msg['author'] == other_user_check:
+                        final_messages.append(msg)
+                if last_response_index is not None:
+                    break
+                start += len(messages)
+        if len(final_messages) > 0:
+            final_messages.sort(key=lambda x: datetime.fromtimestamp(x['created_at'] / 1000))
+            return final_messages[0]['message_id']
+        return None
 
-    def retrieve_last_message_text(self, profile_username: str) -> Optional[str]:
+    def _get_all_messages_after_message_id(self, profile_username: str, message_id: str) -> list:
 
         final_messages = []
         conversation_id = self.find_conversation_by_profile_url(profile_username)
         if conversation_id is not None:
-            check = False
             start = 0
-            while check is False:
+            while True:
                 messages = self.get_conversation(conversation_id, start=start)
                 messages = messages.get("elements", [])
-                if len(messages) == 0:
+                messages = self._struct_messages(messages)
+                check = any(d.get("message_id") == message_id for d in messages)
+                final_messages.extend(messages)
+                if len(messages) == 0 or check:
                     break
-                final_messages.extend(self._struct_messages(messages))
-                check = (any(item["author"] == profile_username for item in final_messages) is False)
                 start += len(messages)
-        final_message = self._build_last_message_from_author(profile_username, final_messages)
-        return final_message
+        final_messages.sort(key=lambda x: datetime.fromtimestamp(x['created_at'] / 1000))
+        message_index = next((index for index, message in enumerate(final_messages)
+                           if message['message_id'] == message_id), None)
+        final_messages = final_messages[message_index:]
+        return final_messages
 
-    def send_in_mail_message(self) -> bool:
-        pass
+    def is_waiting_for_reply(self, profile_username: str, current_username: str) -> bool:
 
-    def check_current_plan(self) -> None:
-        pass
+        message_id = self._get_last_owner_message_id(profile_username, current_username)
+        last_messages = self._get_all_messages_after_message_id(profile_username, message_id)
+        if len(last_messages) > 0:
+            last_message = last_messages[-1]
+            author = last_message.get("author", None)
+            if author is not None:
+                return author == current_username
+        return False
 
-    def get_conversation_in_mail(self):
-        pass
+    def retrieve_last_message_text(self, profile_username: str, current_username: str) -> Optional[str]:
 
-    @staticmethod
-    def _build_last_message_from_author(author_name: str, messages: list) -> str:
-
+        message_id = self._get_last_owner_message_id(profile_username, current_username, False)
+        last_messages = self._get_all_messages_after_message_id(profile_username, message_id)
         final_message = ""
-        sorted_data = sorted(messages, key=lambda x: x["created_at"])
-        last_messages_from_current_account = max((item for item in sorted_data if item["author"] != author_name),
-                                                 key=lambda x: x["created_at"],
-                                                 default=None)
-        if last_messages_from_current_account:
-            messages_from_author_after_current = [item for item in sorted_data if
-                                                  item["author"] == author_name and item["created_at"] >
-                                                  last_messages_from_current_account[
-                                                      "created_at"]]
-        else:
-            messages_from_author_after_current = sorted_data
-        for message in messages_from_author_after_current:
+        for message in last_messages:
             final_message += f" {message['text']}"
         return final_message
 
+    def get_profile_data(self) -> Tuple[str, str, str, str, Optional[str]]:
+
+        profile_data = self.get_user_profile()
+        public_username = profile_data.get("miniProfile", {}).get("publicIdentifier", None)
+        first_name = profile_data.get("miniProfile", {}).get("firstName", None)
+        last_name = profile_data.get("miniProfile", {}).get("lastName", None)
+        if public_username is not None:
+            contact_info = self.get_profile_contact_info(public_username)
+            email_address = contact_info.get("email_address", None)
+            return email_address, first_name, last_name, public_username, self.build_avatar_pic(profile_data)
+
+    def has_profile_in_network(self, profile_id: str) -> bool:
+
+        network_info = self.get_profile_network_info(profile_id)
+        return network_info.get("distance", {}).get("value", None) == "DISTANCE_1"
+
     @staticmethod
-    def _struct_messages(messages: list):
+    def build_avatar_pic(profile_data: dict) -> Optional[str]:
+        avatar_pic_data = profile_data.get("miniProfile", {}) \
+            .get("backgroundImage", {}).get("com.linkedin.common.VectorImage", {})
+        root_url = avatar_pic_data.get("rootUrl", None)
+        artifacts = avatar_pic_data.get("artifacts", [])
+        if len(artifacts) > 0:
+            first_artifact = artifacts[0].get("fileIdentifyingUrlPathSegment", None)
+            return f"{root_url}{first_artifact}"
+
+    @staticmethod
+    def _struct_messages(messages: list) -> list:
 
         final_messages = []
         for message in messages:
@@ -1571,12 +1619,26 @@ class Linkedin(object):
             author = message.get("from", {}) \
                 .get('com.linkedin.voyager.messaging.MessagingMember', {}).get("miniProfile", {}).get(
                 "publicIdentifier", None)
-            if created_at != -1 and text is not None and author is not None:
+            message_id = message.get("backendUrn", None)
+            if created_at != -1 and text is not None and author is not None and message_id is not None:
                 final_messages.append(
                     {
                         "created_at": created_at,
                         "text": text,
-                        "author": author
+                        "author": author,
+                        "message_id": message_id
                     }
                 )
         return final_messages
+
+    def send_in_mail_message(self) -> bool:
+        raise NotImplemented()
+
+    def check_current_plan(self) -> None:
+        raise NotImplemented()
+
+    def get_conversation_in_mail(self):
+        raise NotImplemented()
+
+    def send_request_with_in_mail(self):
+        raise NotImplemented()

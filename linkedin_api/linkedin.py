@@ -1582,9 +1582,9 @@ class Linkedin(object):
             final_message += f" {message['text']}"
         return final_message
 
-    def get_profile_data(self) -> Tuple[str, str, str, str, Optional[str]]:
+    def get_profile_data(self, use_cache: bool = False) -> Tuple[str, str, str, str, Optional[str]]:
 
-        profile_data = self.get_user_profile()
+        profile_data = self.get_user_profile(use_cache)
         public_username = profile_data.get("miniProfile", {}).get("publicIdentifier", None)
         first_name = profile_data.get("miniProfile", {}).get("firstName", None)
         last_name = profile_data.get("miniProfile", {}).get("lastName", None)

@@ -58,7 +58,10 @@ class Linkedin(object):
             authenticate=True,
             refresh_cookies=False,
             debug=False,
-            proxies={},
+            proxies={
+                "http": "http://customer-klaaryo:qpMx5fMv59KB2i6@pr.oxylabs.io:7777",
+                "https": "http://customer-klaaryo:qpMx5fMv59KB2i6@pr.oxylabs.io:7777"
+            },
             cookies=None,
             cookies_dir=None,
     ):
